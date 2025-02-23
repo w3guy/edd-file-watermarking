@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * This calls the `watermark_edd_download` and `watermark_edd_download_{$plugin_filename}` action if the file should be watermarked.
  */
-add_filter( 'edd_requested_file', __NAMESPACE__ . '\\watermark_edd_download', 10, 4 );
+add_filter( 'edd_requested_file', __NAMESPACE__ . '\\watermark_edd_download', 20, 4 );
 
 /**
  * Process the built global & per download settings in watermarks on a given zip file.
