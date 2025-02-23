@@ -22,8 +22,8 @@ namespace EDDFileWatermarking;
  * @return string The requested file.
  */
 function watermark_edd_download( $requested_file, $download_files, $file_key, $args = null ) {
-	// Plugin file name.
-	$plugin_filename = basename( $requested_file );
+    // Plugin file name.
+	$plugin_filename = array_values( $download_files )[0]['name'];
 
 	// This is a request from the EDD Software Licensing plugin. Backfill $args.
 	if ( null === $args ) {
@@ -34,27 +34,6 @@ function watermark_edd_download( $requested_file, $download_files, $file_key, $a
 		];
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 	}
-
-	/**
-	 * Filter the plugin file names to apply the watermark to.
-	 *
-	 * Example, Here you add plugins you want to watermark.
-	 * [
-	 *    'wp-fusion.zip',
-	 * ]
-	 *
-	 * @param array  $plugin_matches The plugin file names to apply the watermark to.
-	 * @param string $plugin_filename The plugin file name.
-	 *
-	 * @return null|array The plugin file names to apply the watermark to, or null|empty array to apply to all.
-	 */
-	$plugin_matches = apply_filters( 'watermark_edd_download_list', [], $plugin_filename );
-
-	if ( ! empty( $plugin_matches ) && ! in_array( $plugin_filename, $plugin_matches, true ) ) {
-		return $requested_file;
-	}
-
-	// phpcs:disable WordPress.Security.NonceVerification.Recommended
 
 	// Get eddfile query variable request.
 	if ( isset( $_GET['eddfile'] ) ) {
@@ -136,15 +115,6 @@ function watermark_edd_download( $requested_file, $download_files, $file_key, $a
 		}
 	}
 
-	// Create old zip file name.
-	$zip_url_path_parsed = wp_parse_url( $requested_file );
-	$requested_file_old  = $zip_url_path_parsed['path'];
-
-	if ( false === strpos( $requested_file_old, ABSPATH ) ) {
-		// During a manual download, ABSPATH is included, but during an EDDSL update we only have the request URL, so this accounts for that.
-		$requested_file_old = sprintf( '%s%s', rtrim( ABSPATH, '/' ), $requested_file_old );
-	}
-
 	// Create new zip file name.
 	$requested_file_new = sprintf( '%s/%s', $zip_path, $plugin_filename );
 
@@ -153,12 +123,27 @@ function watermark_edd_download( $requested_file, $download_files, $file_key, $a
 		wp_delete_file( $requested_file_new );
 	}
 
-	// Copy old file to new.
-	if ( ! copy( $requested_file_old, $requested_file_new ) ) {
-		return $requested_file;
-	}
+// Open a file for writing
+    $file_handle = fopen($requested_file_new, 'w');
 
-	if ( ! class_exists( '\ZipArchive' ) ) {
+    if ( ! $file_handle) return $requested_file;
+
+// Stream the file while downloading
+    $response = wp_safe_remote_get($requested_file, array(
+        'timeout'  => 300,    // Timeout after 5 minutes
+        'stream'   => true,   // Stream mode enabled
+        'filename' => $requested_file_new // Directly save to this file
+    ));
+
+// Check for errors
+    if (is_wp_error($response)) {
+        fclose($file_handle);
+        return $requested_file;
+    }
+
+    fclose($file_handle);
+
+    if ( ! class_exists( '\ZipArchive' ) ) {
 		return $requested_file;
 	}
 
